@@ -13,6 +13,8 @@ CORS(app)
 
 load_dotenv()
 
+
+
 # --- MongoDB Connection ---
 try:
     mongo_uri = os.getenv("MONGO_URI")
