@@ -1,93 +1,203 @@
 import os
+import uuid
 import datetime
 from datetime import timezone
-import google.generativeai as genai
-from pymongo import MongoClient
-from dotenv import load_dotenv
+import sqlite3
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import uuid  # Import UUID for session IDs
+from pymongo import MongoClient
+from dotenv import load_dotenv
+import google.generativeai as genai
 
+# --------------------------------------------------
+# App Setup
+# --------------------------------------------------
 app = Flask(__name__)
 CORS(app)
-
 load_dotenv()
 
+# --------------------------------------------------
+# MongoDB (CHAT HISTORY ONLY)
+# --------------------------------------------------
+messages_collection = None
 
-
-# --- MongoDB Connection ---
 try:
     mongo_uri = os.getenv("MONGO_URI")
-    client = MongoClient(mongo_uri)
-    db = client["aura_ai"]
-    messages_collection = db["messages"]
-    print(" Connected to MongoDB Atlas.")
+    if mongo_uri:
+        client = MongoClient(mongo_uri)
+        db = client["aura_ai"]
+        messages_collection = db["messages"]
+        print("✅ MongoDB connected")
 except Exception as e:
-    print(f" MongoDB Connection Error: {e}")
+    print("❌ MongoDB error:", e)
     messages_collection = None
 
-# --- Setup Gemini ---
+# --------------------------------------------------
+# Gemini Setup
+# --------------------------------------------------
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-def get_ai_persona():
-    return "You are Aura AI, a supportive and empathetic mental health assistant. but you can answer all study question  to and not to add emoji and you are indian AI "
+# --------------------------------------------------
+# SQLite (AI MEMORY ONLY)
+# --------------------------------------------------
+def get_sqlite_connection():
+    conn = sqlite3.connect("aura_memory.db", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# --- Helper: Reconstruct History for Gemini ---
+
+def init_memory_db():
+    conn = get_sqlite_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_memory (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            memory_key TEXT,
+            memory_value TEXT,
+            importance INTEGER,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+init_memory_db()
+
+# --------------------------------------------------
+# Memory Helpers
+# --------------------------------------------------
+def get_user_memory(user_id, limit=5):
+    conn = get_sqlite_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT memory_key, memory_value
+        FROM user_memory
+        WHERE user_id = ?
+        ORDER BY importance DESC, updated_at DESC
+        LIMIT ?
+    """, (user_id, limit))
+    rows = cursor.fetchall()
+    conn.close()
+
+    return {row["memory_key"]: row["memory_value"] for row in rows}
+
+
+def save_or_update_memory(user_id, key, value, importance=5):
+    conn = get_sqlite_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id FROM user_memory
+        WHERE user_id = ? AND memory_key = ?
+    """, (user_id, key))
+    existing = cursor.fetchone()
+
+    if existing is not None:
+        cursor.execute("""
+            UPDATE user_memory
+            SET memory_value = ?, importance = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (value, importance, existing["id"]))
+    else:
+        cursor.execute("""
+            INSERT INTO user_memory (user_id, memory_key, memory_value, importance)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, key, value, importance))
+
+    conn.commit()
+    conn.close()
+
+# --------------------------------------------------
+# AI Persona (WITH MEMORY)
+# --------------------------------------------------
+def get_ai_persona(user_memory):
+    memory_block = ""
+    for k, v in user_memory.items():
+        memory_block += f"- {k}: {v}\n"
+
+    return (
+        "You are Aura AI, a compassionate and supportive mental health assistant "
+        "created by the MindMate team. "
+        "You understand Indian cultural values. "
+        "Always respond calmly, gently, and empathetically. "
+        "Never mention memory, databases, or internal systems.\n\n"
+        "User background (use naturally):\n"
+        f"{memory_block}"
+    )
+
+# --------------------------------------------------
+# Load Chat History (MongoDB)
+# --------------------------------------------------
 def get_chat_history(session_id, user_id):
-    """Fetches message history from Mongo and formats it for Gemini."""
-    if not messages_collection:
+    if messages_collection is None:
         return []
-    
-    # Get last 20 messages for context (to save tokens/avoid limits)
+
     cursor = messages_collection.find(
         {"session_id": session_id, "user_id": user_id}
-    ).sort("timestamp", 1) # Oldest to newest
-    
+    ).sort("timestamp", 1)
+
     history = []
     for doc in cursor:
         role = "user" if doc["sender"] == "user" else "model"
         history.append({"role": role, "parts": [doc["message"]]})
+
     return history
 
+# --------------------------------------------------
+# CHAT API
+# --------------------------------------------------
 @app.route("/chat", methods=["POST"])
 def chat():
-    user_message = request.json.get("message")
-    user_id = request.json.get("user_id", "user_1") # Default ID
-    # Use provided session_id or generate a new one
-    session_id = request.json.get("session_id") or str(uuid.uuid4())
+    data = request.json or {}
+    user_message = data.get("message")
+    user_id = data.get("user_id", "user_1")
+    session_id = data.get("session_id") or str(uuid.uuid4())
 
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
     try:
-        current_time = datetime.datetime.now(timezone.utc)
+        now = datetime.datetime.now(timezone.utc)
 
-        # 1. Save User Message with Session ID
+        # Save user message
         if messages_collection is not None:
             messages_collection.insert_one({
                 "user_id": user_id,
                 "session_id": session_id,
                 "sender": "user",
                 "message": user_message,
-                "timestamp": current_time
+                "timestamp": now
             })
 
-        # 2. Reconstruct History & Initialize Chat
+        # 🧠 Load AI Memory
+        user_memory = get_user_memory(user_id)
+
+        msg_lower = user_message.lower()
+
+        # Simple learning rules
+        if "my name is" in msg_lower:
+            name = user_message.split("is")[-1].strip()
+            save_or_update_memory(user_id, "name", name, importance=10)
+
+        if "exam" in msg_lower and "stress" in msg_lower:
+            save_or_update_memory(user_id, "stress_trigger", "exams", importance=9)
+
+        # Load history
         history = get_chat_history(session_id, user_id)
-        
+
         model = genai.GenerativeModel(
-            model_name='gemini-2.5-flash', 
-            system_instruction=get_ai_persona()
+            model_name="gemini-2.5-flash",
+            system_instruction=get_ai_persona(user_memory)
         )
-        
-        # Start chat with loaded history
+
         chat_session = model.start_chat(history=history)
-        
-        # 3. Get AI Response
         response = chat_session.send_message(user_message)
         ai_reply = response.text
 
-        # 4. Save AI Reply with Session ID
+        # Save AI reply
         if messages_collection is not None:
             messages_collection.insert_one({
                 "user_id": user_id,
@@ -97,55 +207,63 @@ def chat():
                 "timestamp": datetime.datetime.now(timezone.utc)
             })
 
-        return jsonify({"reply": ai_reply, "session_id": session_id})
+        return jsonify({
+            "reply": ai_reply,
+            "session_id": session_id
+        })
 
     except Exception as e:
-        print(f" Error: {e}")
+        print("❌ Chat error:", e)
         return jsonify({"error": str(e)}), 500
 
-# --- NEW: Get List of Sessions (History Sidebar) ---
+# --------------------------------------------------
+# SESSIONS LIST
+# --------------------------------------------------
 @app.route("/sessions/<user_id>", methods=["GET"])
 def get_sessions(user_id):
-    if not messages_collection:
+    if messages_collection is None:
         return jsonify([])
 
-    # Aggregate to find unique sessions and their first message/time
     pipeline = [
         {"$match": {"user_id": user_id}},
-        {"$sort": {"timestamp": -1}}, # Newest messages first
+        {"$sort": {"timestamp": -1}},
         {"$group": {
             "_id": "$session_id",
             "last_message": {"$first": "$message"},
             "timestamp": {"$first": "$timestamp"}
         }},
-        {"$sort": {"timestamp": -1}} # Newest sessions top
+        {"$sort": {"timestamp": -1}}
     ]
-    
-    sessions = list(messages_collection.aggregate(pipeline))
-    
-    # Format for frontend
-    formatted_sessions = []
-    for s in sessions:
-        formatted_sessions.append({
-            "session_id": s["_id"],
-            "preview": s["last_message"][:30] + "...", # Preview text
-            "timestamp": s["timestamp"]
-        })
-        
-    return jsonify(formatted_sessions)
 
-# --- NEW: Load Specific Session Messages ---
+    sessions = list(messages_collection.aggregate(pipeline))
+
+    return jsonify([
+        {
+            "session_id": s["_id"],
+            "preview": s["last_message"][:30] + "...",
+            "timestamp": s["timestamp"]
+        }
+        for s in sessions
+    ])
+
+# --------------------------------------------------
+# SESSION HISTORY
+# --------------------------------------------------
 @app.route("/history/<session_id>", methods=["GET"])
 def get_session_history(session_id):
-    if not messages_collection:
+    if messages_collection is None:
         return jsonify([])
-        
+
     messages = list(messages_collection.find(
-        {"session_id": session_id}, 
-        {"_id": 0} # Exclude Mongo Object ID
+        {"session_id": session_id},
+        {"_id": 0}
     ).sort("timestamp", 1))
-    
+
     return jsonify(messages)
 
+# --------------------------------------------------
+# RUN
+# --------------------------------------------------
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
