@@ -135,10 +135,10 @@ This project is developed for educational and innovation purposes.
 
 ## 👥 Team Members
 
-* **Ayush Prajapati** <br>🔗 Github: [Ayush prajapati](https://github.com/Ayushprajapati4705)
-* **Dax Prajapati** <br>🔗 Github: [Dax Prajapati](https://github.com/Prajapatidax)
-* **Dhruvi Solanki**<br>🔗 Github: [Dhruvi Solanki](https://github.com/DhruviSolanki1007)
-* **Hardi Chavda**<br>🔗 Github: [Hardi Chavda](https://github.com/Hardi1311/)
+* **Ayush Prajapati** <br>🔗 Github: [Ayush prajapati](https://github.com/Ayushprajapati4705) <br>🔗 LinkedIn [Ayush Prajapati](https://www.linkedin.com/in/ayush-prajapati-a09194327/)
+* **Dax Prajapati** <br>🔗 Github: [Dax Prajapati](https://github.com/Prajapatidax)<br>🔗 LinkedIn [Dax Prajapati](https://www.linkedin.com/in/dax-prajapati1707/)
+* **Dhruvi Solanki**<br>🔗 Github: [Dhruvi Solanki](https://github.com/DhruviSolanki1007)<br>🔗 LinkedIn [Dhurvi Solanki](https://www.linkedin.com/in/dhruvi-solanki-772b38313/)
+* **Hardiba Chavda**<br>🔗 Github: [Hardiba Chavda](https://github.com/Hardi1311/)<br>🔗 LinkedIn [Hardiba Chavda](https://www.linkedin.com/in/hardiba-chavda-0851a9350/)
 
 ---
 
