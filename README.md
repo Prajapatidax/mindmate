@@ -73,9 +73,11 @@ At the same time, it provides admins with full control over users, content, sess
    * View and manage booked sessions
    * Handle scheduling efficiently
 * **Content & Resource Control**:
+  * Add, update, or remove mental health resources
+  * Manage educational content
+* **Community Moderation**:
   * Monitor discussions
   * Ensure a safe and respectful environment
-* **Community Moderation**
 * **Analytics & Insights**:
   * Usage statistics
   * User engagement tracking
