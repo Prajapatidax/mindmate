@@ -1,4 +1,4 @@
-# 🧠 MindMate   
+# <img scr="frontend/images.logo.png"> MindMate   
 
 MindMate is a student-focused mental wellness and productivity platform designed to support emotional health, peer connection, and guided self-improvement. It combines AI-powered assistance, community interaction, and administrative tools into a single, easy-to-use system.
 
