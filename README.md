@@ -100,7 +100,8 @@ Aura AI is the heart of MindMate:
 * **Frontend**: HTML, CSS, JavaScript
 * **Backend**: Python (Flask / FastAPI)
 * **AI Integration**: NLP-based conversational AI
-* **Database**: SQL-based (for users, sessions, admin data)
+* **Database**: NoSQL-based (for users, sessions, admin data) (MongoDB)
+* **Memory**: SQL-based (Aura AI chat) (SQLite)
 * **Real-Time Features**: WebSockets / APIs
 
 ---
