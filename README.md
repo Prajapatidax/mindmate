@@ -22,42 +22,64 @@ At the same time, it provides admins with full control over users, content, sess
 
 ### 👤 Student (User) Side
 
-* **Authentication**: Secure Sign Up & Login
+* **Authentication**:
+   * Secure Sign Up & Login
+   * User-friendly onboarding experience
 * **User Dashboard**:
 
   * Weekly mental health check-ins
   * Book and manage sessions
+  * Personalized overview of activity
 * **Aura AI**:
 
   * AI-powered mental health companion
-  * Chat-based interaction
+  * Supportive mental health conversations
   * AI Avatar with voice/video interaction
+  * Context-aware and empathetic responses
 * **Friend System**:
 
-  * Chat with friends
-  * Voice & video calling
+  * Chat with friends in real-time
+  * Voice calling
+  * Video calling
+  * Stay connected and supportive
 * **Community**:
 
   * Join group discussions
-  * Share thoughts and experiences
+  * Share thoughts, experiences, and reflections
+  * Safe and moderated environment
 * **Resources**:
 
-  * Access mental health content and learning materials
+  * Access mental health content
+  * Learning materials and self-help resources
+  * Guided activities and insights
 * **Privacy Focused**:
 
   * Temporary chats supported
   * No unnecessary data storage
+  * User-first privacy design
 
 ---
 
 ### 🛠️ Admin Side
 
-* **Admin Dashboard**
-* **User Management**
-* **Session & Booking Management**
-* **Content & Resource Control**
+* **Admin Dashboard**:
+  *Centralized admin control panel
+  *Real-time system overview
+   
+* **User Management**:
+  * Manage users and profiles
+  *Monitor activity and engagement
+* **Session & Booking Management**:
+   * View and manage booked sessions
+   * Handle scheduling efficiently
+* **Content & Resource Control**:
+  * Monitor discussions
+  * Ensure a safe and respectful environment
 * **Community Moderation**
-* **Analytics & Insights** (usage, engagement, activity)
+* **Analytics & Insights**:
+  * Usage statistics
+  * User engagement tracking
+  * Activity and interaction insights
 
 ---
 
