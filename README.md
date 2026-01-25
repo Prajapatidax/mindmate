@@ -171,6 +171,8 @@ This project is developed for educational and innovation purposes.
 
 **Dax Prajapati**
 🔗 LinkedIn: [https://www.linkedin.com/in/dax-prajapati1707](https://www.linkedin.com/in/dax-prajapati1707)
+🔗 Portfolio: [Dax-Prajapati](https://daxprajapati.free.nf/)
+
 
 ---
 
