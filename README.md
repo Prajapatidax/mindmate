@@ -169,9 +169,7 @@ This project is developed for educational and innovation purposes.
 
 ## 👨‍💻 Author
 
-**Dax Prajapati**<br>
-      🔗 LinkedIn: [https://www.linkedin.com/in/dax-prajapati1707](https://www.linkedin.com/in/dax-prajapati1707)<br>
-      🔗 Portfolio: [Dax-Prajapati](https://daxprajapati.free.nf/)
+**Dax Prajapati**<br>🔗 LinkedIn: [https://www.linkedin.com/in/dax-prajapati1707](https://www.linkedin.com/in/dax-prajapati1707)<br>🔗 Portfolio: [Dax-Prajapati](https://daxprajapati.free.nf/)
 
 
 ---
