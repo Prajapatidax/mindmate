@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindMate Chat</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            --primary: #0d9488;
+            --primary-light: #ccfbf1;
+            --primary-dark: #0f766e;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --radius-lg: 16px;
+            --radius-md: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--bg-body); 
+            height: 100vh; 
+            overflow: hidden; 
+            color: var(--text-main);
+        }
+        
+        .container { display: flex; height: 100vh; max-width: 1600px; margin: 0 auto; background: var(--bg-card); box-shadow: var(--shadow-md); }
+
+        /* --- SIDEBAR --- */
+        .sidebar { 
+            width: 380px; 
+            background: #ffffff; 
+            border-right: 1px solid var(--border); 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 20;
+        }
+
+        .sidebar-header { 
+            padding: 20px 24px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            border-bottom: 1px solid transparent;
+        }
+
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; color: var(--primary); }
+        
+        .action-btn { 
+            width: 36px; height: 36px; 
+            border-radius: 10px; 
+            border: 1px solid var(--border); 
+            background: white; 
+            color: var(--text-muted); 
+            cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; 
+            transition: all 0.2s ease;
+        }
+        .action-btn:hover { background: var(--bg-body); color: var(--primary); border-color: var(--primary); }
+
+        /* Tabs */
+        .sidebar-tabs { 
+            display: flex; 
+            padding: 0 24px 10px; 
+            gap: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .tab-btn { 
+            background: none; border: none; 
+            padding: 8px 0; 
+            font-family: inherit; font-weight: 600; font-size: 14px; 
+            color: var(--text-muted); 
+            cursor: pointer; 
+            position: relative;
+            transition: 0.2s;
+        }
+        
+        .tab-btn.active { color: var(--primary); }
+        .tab-btn.active::after {
+            content: ''; position: absolute; bottom: -11px; left: 0; width: 100%; height: 3px; 
+            background: var(--primary); border-radius: 3px 3px 0 0;
+        }
+
+        .badge {
+            background: #ef4444; color: white; 
+            font-size: 10px; padding: 2px 6px; 
+            border-radius: 10px; margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        /* Lists */
+        .contacts-list { flex: 1; overflow-y: auto; padding: 15px; }
+        
+        .contact-item { 
+            padding: 12px; 
+            border-radius: var(--radius-md); 
+            cursor: pointer; 
+            display: flex; align-items: center; 
+            transition: all 0.2s;
+            margin-bottom: 4px;
+            border: 1px solid transparent;
+        }
+        .contact-item:hover { background: var(--bg-body); }
+        .contact-item.active { background: var(--primary-light); border-color: rgba(13, 148, 136, 0.1); }
+        
+        .avatar { 
+            width: 44px; height: 44px; 
+            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); 
+            color: #4f46e5;
+            border-radius: 12px; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 18px; font-weight: 600;
+            margin-right: 14px; 
+            flex-shrink: 0;
+        }
+        .contact-item.active .avatar { background: var(--primary); color: white; }
+
+        .contact-info { flex: 1; overflow: hidden; }
+        .contact-name { font-weight: 600; color: var(--text-main); font-size: 15px; margin-bottom: 2px; }
+        .contact-email { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Request Item */
+        .request-item { 
+            background: white; border: 1px solid var(--border); 
+            border-radius: var(--radius-md); padding: 12px; margin-bottom: 10px;
+        }
+        .request-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .req-actions { display: flex; gap: 8px; }
+        .req-btn { 
+            flex: 1; padding: 8px; border-radius: 8px; border: none; cursor: pointer; 
+            font-size: 13px; font-weight: 600; transition: 0.2s;
+        }
+        .btn-accept { background: var(--primary); color: white; }
+        .btn-accept:hover { background: var(--primary-dark); }
+        .btn-ignore { background: #f1f5f9; color: var(--text-main); }
+        .btn-ignore:hover { background: #e2e8f0; }
+
+        /* --- CHAT AREA --- */
+        .chat-area { 
+            flex: 1; display: flex; flex-direction: column; 
+            background: #f8fafc; 
+            position: relative;
+        }
+        
+        /* Empty State */
+        .chat-placeholder { 
+            flex: 1; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+            color: var(--text-muted); 
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e2e8f0' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .empty-icon-circle {
+            width: 80px; height: 80px; background: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--shadow-md); margin-bottom: 20px;
+        }
+
+        /* Active Chat */
+        .chat-header { 
+            padding: 16px 24px; 
+            background: white; 
+            border-bottom: 1px solid var(--border); 
+            display: flex; align-items: center; justify-content: space-between; 
+            box-shadow: var(--shadow-sm);
+            z-index: 10;
+        }
+        .chat-user { display: flex; align-items: center; gap: 14px; }
+        .chat-username { font-weight: 700; font-size: 16px; color: var(--text-main); }
+        .status-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--primary); font-weight: 500; }
+        .status-dot { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; }
+
+        .messages-container { 
+            flex: 1; padding: 24px; overflow-y: auto; 
+            display: flex; flex-direction: column; gap: 16px; 
+        }
+        
+        .message { 
+            max-width: 75%; padding: 12px 18px; 
+            border-radius: 18px; 
+            font-size: 15px; line-height: 1.5; 
+            position: relative; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .message.sent { 
+            align-self: flex-end; 
+            background: var(--primary); 
+            color: white; 
+            border-bottom-right-radius: 4px; 
+        }
+        .message.received { 
+            align-self: flex-start; 
+            background: white; 
+            color: var(--text-main); 
+            border: 1px solid var(--border); 
+            border-bottom-left-radius: 4px; 
+        }
+        .msg-time { 
+            font-size: 11px; margin-top: 4px; 
+            opacity: 0.7; text-align: right; 
+            display: block; 
+        }
+
+        /* Input Area */
+        .input-area { 
+            padding: 20px; 
+            background: white; 
+            border-top: 1px solid var(--border); 
+            display: flex; gap: 12px; align-items: center;
+        }
+        .input-wrapper {
+            flex: 1; position: relative;
+        }
+        .msg-input { 
+            width: 100%;
+            padding: 14px 20px; 
+            padding-right: 50px;
+            border: 2px solid var(--border); 
+            border-radius: 24px; 
+            outline: none; 
+            font-size: 15px; 
+            transition: 0.2s;
+            background: #f8fafc;
+        }
+        .msg-input:focus { border-color: var(--primary); background: white; }
+        
+        .send-btn { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            width: 48px; height: 48px; 
+            border-radius: 14px; 
+            cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; 
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(13, 148, 136, 0.2);
+        }
+        .send-btn:hover { background: var(--primary-dark); transform: translateY(-2px); }
+
+        /* --- MODAL --- */
+        .modal { 
+            display: none; position: fixed; inset: 0; 
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);
+            align-items: center; justify-content: center; 
+            z-index: 100; 
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .modal.active { display: flex; opacity: 1; }
+        
+        .modal-content { 
+            background: white; padding: 30px; border-radius: 24px; 
+            width: 420px; max-width: 90%; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            transform: scale(0.95); transition: transform 0.3s;
+        }
+        .modal.active .modal-content { transform: scale(1); }
+
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 24px; align-items: center; }
+        .modal-title { font-weight: 700; font-size: 20px; color: var(--text-main); }
+        .close-modal { 
+            cursor: pointer; background: #f1f5f9; border: none; 
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted); transition: 0.2s;
+        }
+        .close-modal:hover { background: #e2e8f0; color: #ef4444; }
+
+        .search-container { position: relative; margin-bottom: 20px; }
+        .search-icon { position: absolute; left: 14px; top: 12px; color: var(--text-muted); width: 18px; }
+        .search-inp { 
+            width: 100%; padding: 12px 12px 12px 40px; 
+            border: 2px solid var(--border); border-radius: 12px; 
+            outline: none; font-size: 14px; transition: 0.2s;
+        }
+        .search-inp:focus { border-color: var(--primary); }
+
+        .search-results { max-height: 240px; overflow-y: auto; }
+        .search-item { 
+            display: flex; justify-content: space-between; padding: 12px; 
+            border-bottom: 1px solid var(--bg-body); align-items: center; 
+        }
+        .add-btn { 
+            background: var(--primary); color: white; border: none; 
+            padding: 6px 14px; border-radius: 8px; cursor: pointer; 
+            font-size: 13px; font-weight: 600;
+        }
+        .add-btn:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; height: 100%; }
+            .chat-area { display: none; position: fixed; inset: 0; z-index: 50; }
+            .chat-area.active { display: flex; }
+            .back-btn { display: flex !important; }
+        }
+        .back-btn { 
+            display: none; width: 36px; height: 36px; 
+            border-radius: 10px; border: 1px solid var(--border); 
+            background: white; color: var(--text-main);
+            align-items: center; justify-content: center;
+            margin-right: 10px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand">
+                <i data-lucide="message-circle-heart" fill="currentColor"></i>
+                MindChat
+            </div>
+            <div style="display:flex; gap:8px">
+                 <button class="action-btn" onclick="openAddFriendModal()" title="Add Friend">
+                    <i data-lucide="user-plus" style="width:18px"></i>
+                </button>
+                <button class="action-btn" onclick="window.location.href='user-dashboard.html'" title="Dashboard">
+                    <i data-lucide="layout-grid" style="width:18px"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="sidebar-tabs">
+            <button class="tab-btn active" onclick="switchTab('friends')">Friends</button>
+            <button class="tab-btn" onclick="switchTab('requests')">
+                Requests <span id="req-count" class="badge" style="display:none">0</span>
+            </button>
+        </div>
+
+        <!-- Friends List -->
+        <div id="friends-view" class="contacts-list">
+            <div style="padding: 40px 20px; text-align:center; color:var(--text-muted);">
+                <i data-lucide="loader-2" class="animate-spin" style="margin: 0 auto 10px;"></i>
+                <p style="font-size:14px">Loading friends...</p>
+            </div>
+        </div>
+
+        <!-- Requests List -->
+        <div id="requests-view" class="contacts-list" style="display: none;">
+            <div style="padding: 40px 20px; text-align:center; color:var(--text-muted); font-size:14px">
+                <i data-lucide="inbox" style="width:30px; height:30px; margin-bottom:10px; opacity:0.5"></i>
+                <p>No pending requests</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHAT AREA -->
+    <div class="chat-area" id="chatArea">
+        <!-- Empty State -->
+        <div id="empty-state" class="chat-placeholder">
+            <div class="empty-icon-circle">
+                <i data-lucide="message-square" style="width:32px; height:32px; color:var(--primary)"></i>
+            </div>
+            <h2 style="font-size:18px; font-weight:700; color:var(--text-main); margin-bottom:6px">Your Safe Space</h2>
+            <p>Select a friend from the sidebar to start chatting.</p>
+        </div>
+
+        <!-- Active Chat -->
+        <div id="active-chat" style="display: none; height: 100%; flex-direction: column;">
+            <div class="chat-header">
+                <div class="chat-user">
+                    <button class="back-btn" onclick="closeChat()">
+                        <i data-lucide="arrow-left" style="width:20px"></i>
+                    </button>
+                    <div class="avatar" id="chat-avatar"></div>
+                    <div>
+                        <div class="chat-username" id="chat-name">User</div>
+                        <div class="status-indicator"><span class="status-dot"></span> Online</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messages-box">
+                <!-- Messages will appear here -->
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="text" id="msg-input" class="msg-input" placeholder="Type your message..." onkeypress="if(event.key==='Enter') sendMessage()">
+                </div>
+                <button class="send-btn" onclick="sendMessage()">
+                    <i data-lucide="send" style="width:20px"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Friend Modal -->
+<div class="modal" id="addFriendModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">Find Friends</div>
+            <button class="close-modal" onclick="closeAddFriendModal()">
+                <i data-lucide="x" style="width:18px"></i>
+            </button>
+        </div>
+        <div class="search-container">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="user-search" class="search-inp" placeholder="Search by name or email..." oninput="searchUsers()">
+        </div>
+        <div class="search-results" id="search-results">
+            <div style="text-align:center; color:var(--text-muted); font-size:13px; padding:20px;">
+                Start typing to search users...
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:5000';
+    let currentUser = null;
+    let activeFriendId = null;
+    let messageInterval = null;
+
+    // --- Init ---
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+        
+        // Auth Check
+        const userStr = localStorage.getItem('currentUser');
+        if (!userStr) {
+            window.location.href = 'login.html';
+            return;
+        }
+        currentUser = JSON.parse(userStr);
+        
+        // Initial Fetch
+        fetchFriends();
+        fetchRequests();
+    });
+
+    // --- Tabs ---
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+        
+        if (tab === 'friends') {
+            document.getElementById('friends-view').style.display = 'block';
+            document.getElementById('requests-view').style.display = 'none';
+            fetchFriends();
+        } else {
+            document.getElementById('friends-view').style.display = 'none';
+            document.getElementById('requests-view').style.display = 'block';
+            fetchRequests();
+        }
+    }
+
+    // --- API: Friends ---
+    async function fetchFriends() {
+        try {
+            const res = await fetch(`${API_URL}/friends/list/${currentUser.user_id}`);
+            const friends = await res.json();
+            const container = document.getElementById('friends-view');
+            container.innerHTML = '';
+
+            if (friends.length === 0) {
+                container.innerHTML = `
+                    <div style="padding:40px 20px; text-align:center; color:var(--text-muted); font-size:14px">
+                        <i data-lucide="users" style="width:30px; height:30px; margin-bottom:10px; opacity:0.5; margin:auto"></i>
+                        <p>No friends yet.</p>
+                        <button onclick="openAddFriendModal()" style="color:var(--primary); background:none; border:none; font-weight:600; cursor:pointer; margin-top:5px">Find people</button>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            friends.forEach(f => {
+                const div = document.createElement('div');
+                div.className = `contact-item ${activeFriendId === f.id ? 'active' : ''}`;
+                div.onclick = () => openChat(f);
+                
+                // Get Initials
+                const initials = f.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
+                
+                div.innerHTML = `
+                    <div class="avatar">${initials}</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${f.name}</div>
+                        <div class="contact-email">${f.email}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // --- API: Requests ---
+    async function fetchRequests() {
+        try {
+            const res = await fetch(`${API_URL}/friend-request/pending/${currentUser.user_id}`);
+            const reqs = await res.json();
+            const container = document.getElementById('requests-view');
+            const badge = document.getElementById('req-count');
+            
+            container.innerHTML = '';
+            
+            if (reqs.length > 0) {
+                badge.textContent = reqs.length;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+                container.innerHTML = `
+                    <div style="padding:40px 20px; text-align:center; color:var(--text-muted); font-size:14px">
+                        <i data-lucide="inbox" style="width:30px; height:30px; margin-bottom:10px; opacity:0.5; margin:auto"></i>
+                        <p>No pending requests</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            reqs.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'request-item';
+                div.innerHTML = `
+                    <div class="request-header">
+                        <div class="avatar" style="width:36px; height:36px; font-size:14px; background:#f1f5f9; color:var(--text-main)">?</div>
+                        <div>
+                            <div style="font-weight:600; font-size:14px; color:var(--text-main)">${r.sender_name}</div>
+                            <div style="font-size:11px; color:var(--text-muted)">${r.sender_email}</div>
+                        </div>
+                    </div>
+                    <div class="req-actions">
+                        <button class="req-btn btn-accept" onclick="acceptRequest('${r.request_id}')">Accept</button>
+                        <button class="req-btn btn-ignore">Ignore</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function acceptRequest(reqId) {
+        await fetch(`${API_URL}/friend-request/accept`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ request_id: reqId })
+        });
+        fetchRequests();
+        fetchFriends(); 
+    }
+
+    // --- API: Chat ---
+    function openChat(friend) {
+        activeFriendId = friend.id;
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('active-chat').style.display = 'flex';
+        document.getElementById('chat-name').textContent = friend.name;
+        
+        // Set Avatar
+        const initials = friend.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
+        document.getElementById('chat-avatar').textContent = initials;
+        
+        // Highlight in sidebar
+        document.querySelectorAll('.contact-item').forEach(i => i.classList.remove('active'));
+        
+        // For mobile view
+        document.getElementById('chatArea').classList.add('active');
+
+        // Initial fetch & start polling
+        fetchMessages();
+        if (messageInterval) clearInterval(messageInterval);
+        messageInterval = setInterval(fetchMessages, 3000);
+    }
+
+    function closeChat() {
+        activeFriendId = null;
+        if (messageInterval) clearInterval(messageInterval);
+        document.getElementById('chatArea').classList.remove('active'); 
+        document.getElementById('empty-state').style.display = 'flex';
+        document.getElementById('active-chat').style.display = 'none';
+        
+        // Remove highlight
+        document.querySelectorAll('.contact-item').forEach(i => i.classList.remove('active'));
+    }
+
+    async function fetchMessages() {
+        if (!activeFriendId) return;
+        try {
+            const res = await fetch(`${API_URL}/p2p/messages`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: currentUser.user_id, friend_id: activeFriendId })
+            });
+            const msgs = await res.json();
+            renderMessages(msgs);
+        } catch (e) { console.error(e); }
+    }
+
+    function renderMessages(msgs) {
+        const box = document.getElementById('messages-box');
+        const shouldScroll = box.scrollTop + box.clientHeight >= box.scrollHeight - 100;
+        
+        box.innerHTML = msgs.map(m => {
+            const isMe = m.sender_id === currentUser.user_id;
+            const time = new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            return `
+                <div class="message ${isMe ? 'sent' : 'received'}">
+                    ${m.text}
+                    <span class="msg-time">${time}</span>
+                </div>
+            `;
+        }).join('');
+
+        if (shouldScroll || msgs.length === 1) box.scrollTop = box.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const inp = document.getElementById('msg-input');
+        const text = inp.value.trim();
+        if (!text || !activeFriendId) return;
+
+        inp.value = '';
+        
+        // Optimistic UI update
+        const box = document.getElementById('messages-box');
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        box.innerHTML += `
+            <div class="message sent" style="opacity:0.7">
+                ${text}
+                <span class="msg-time">${time}</span>
+            </div>
+        `;
+        box.scrollTop = box.scrollHeight;
+
+        await fetch(`${API_URL}/p2p/send`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                sender_id: currentUser.user_id,
+                receiver_id: activeFriendId,
+                text: text
+            })
+        });
+        fetchMessages(); 
+    }
+
+    // --- Modal Logic ---
+    function openAddFriendModal() {
+        const modal = document.getElementById('addFriendModal');
+        modal.classList.add('active');
+        document.getElementById('user-search').focus();
+    }
+    function closeAddFriendModal() {
+        document.getElementById('addFriendModal').classList.remove('active');
+        document.getElementById('search-results').innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:13px; padding:20px;">Start typing to search users...</div>';
+        document.getElementById('user-search').value = '';
+    }
+
+    let searchTimeout;
+    function searchUsers() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async () => {
+            const query = document.getElementById('user-search').value;
+            const list = document.getElementById('search-results');
+            
+            if (query.length < 2) {
+                list.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:13px; padding:20px;">Start typing to search users...</div>';
+                return;
+            }
+
+            // Show loading
+            list.innerHTML = '<div style="text-align:center; padding:20px;"><i data-lucide="loader-2" class="animate-spin"></i></div>';
+            lucide.createIcons();
+
+            const res = await fetch(`${API_URL}/users/search`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: currentUser.user_id, query })
+            });
+            const users = await res.json();
+            
+            if(users.length === 0) {
+                list.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:13px; padding:20px;">No users found.</div>';
+                return;
+            }
+
+            list.innerHTML = users.map(u => {
+                let btnHtml = '';
+                if (u.status === 'friend') btnHtml = '<span style="font-size:12px; color:green; font-weight:600">Already Friends</span>';
+                else if (u.status === 'pending') btnHtml = '<span style="font-size:12px; color:orange; font-weight:600">Request Sent</span>';
+                else btnHtml = `<button class="add-btn" onclick="sendFriendRequest('${u.user_id}')">Add Friend</button>`;
+
+                return `
+                    <div class="search-item">
+                        <div style="display:flex; align-items:center; gap:10px">
+                            <div class="avatar" style="width:36px; height:36px; font-size:14px; background:#f1f5f9; color:var(--text-main)">${u.name[0]}</div>
+                            <div>
+                                <div style="font-weight:600; font-size:14px; color:var(--text-main)">${u.name}</div>
+                                <div style="font-size:11px; color:var(--text-muted)">${u.email}</div>
+                            </div>
+                        </div>
+                        ${btnHtml}
+                    </div>
+                `;
+            }).join('');
+        }, 500);
+    }
+
+    async function sendFriendRequest(receiverId) {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '...';
+        btn.disabled = true;
+
+        await fetch(`${API_URL}/friend-request/send`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ sender_id: currentUser.user_id, receiver_id: receiverId })
+        });
+        
+        btn.textContent = 'Sent';
+        btn.style.background = '#10b981';
+    }
+</script>
+
+</body>
+</html>
