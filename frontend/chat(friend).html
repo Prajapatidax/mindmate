@@ -7,7 +7,7 @@
     <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+    <link rel="website icon" href="/frontend/images/logo.png"> 
     <style>
         :root {
             --primary: #0d9488;
@@ -192,6 +192,7 @@
             position: relative; 
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             animation: fadeIn 0.3s ease;
+            word-wrap: break-word;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -207,6 +208,13 @@
             color: var(--text-main); 
             border: 1px solid var(--border); 
             border-bottom-left-radius: 4px; 
+        }
+        .msg-sender-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 4px;
+            display: block;
         }
         .msg-time { 
             font-size: 11px; margin-top: 4px; 
@@ -299,6 +307,21 @@
         }
         .add-btn:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
 
+        /* Group Create Styles */
+        .friend-select-item {
+            display: flex; align-items: center; gap: 10px; padding: 8px;
+            cursor: pointer; border-radius: 8px;
+        }
+        .friend-select-item:hover { background: var(--bg-body); }
+        .friend-select-item input { margin-right: 5px; transform: scale(1.2); cursor: pointer; }
+        
+        .create-group-btn {
+            width: 100%; background: var(--primary); color: white;
+            padding: 12px; border: none; border-radius: 12px;
+            font-weight: 600; cursor: pointer; margin-top: 20px;
+        }
+        .create-group-btn:hover { background: var(--primary-dark); }
+
         /* Mobile */
         @media (max-width: 768px) {
             .container { flex-direction: column; }
@@ -330,6 +353,9 @@
                  <button class="action-btn" onclick="openAddFriendModal()" title="Add Friend">
                     <i data-lucide="user-plus" style="width:18px"></i>
                 </button>
+                <button class="action-btn" onclick="openCreateGroupModal()" title="Create Group">
+                    <i data-lucide="users-round" style="width:18px"></i>
+                </button>
                 <button class="action-btn" onclick="window.location.href='user-dashboard.html'" title="Dashboard">
                     <i data-lucide="layout-grid" style="width:18px"></i>
                 </button>
@@ -338,6 +364,7 @@
 
         <div class="sidebar-tabs">
             <button class="tab-btn active" onclick="switchTab('friends')">Friends</button>
+            <button class="tab-btn" onclick="switchTab('groups')">Groups</button>
             <button class="tab-btn" onclick="switchTab('requests')">
                 Requests <span id="req-count" class="badge" style="display:none">0</span>
             </button>
@@ -348,6 +375,14 @@
             <div style="padding: 40px 20px; text-align:center; color:var(--text-muted);">
                 <i data-lucide="loader-2" class="animate-spin" style="margin: 0 auto 10px;"></i>
                 <p style="font-size:14px">Loading friends...</p>
+            </div>
+        </div>
+
+        <!-- Groups List -->
+        <div id="groups-view" class="contacts-list" style="display: none;">
+             <div style="padding: 40px 20px; text-align:center; color:var(--text-muted);">
+                <i data-lucide="loader-2" class="animate-spin" style="margin: 0 auto 10px;"></i>
+                <p style="font-size:14px">Loading groups...</p>
             </div>
         </div>
 
@@ -368,7 +403,7 @@
                 <i data-lucide="message-square" style="width:32px; height:32px; color:var(--primary)"></i>
             </div>
             <h2 style="font-size:18px; font-weight:700; color:var(--text-main); margin-bottom:6px">Your Safe Space</h2>
-            <p>Select a friend from the sidebar to start chatting.</p>
+            <p>Select a friend or group to start chatting.</p>
         </div>
 
         <!-- Active Chat -->
@@ -423,11 +458,38 @@
     </div>
 </div>
 
+<!-- Create Group Modal -->
+<div class="modal" id="createGroupModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">Create Group</div>
+            <button class="close-modal" onclick="closeCreateGroupModal()">
+                <i data-lucide="x" style="width:18px"></i>
+            </button>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <label style="font-size:14px; font-weight:600; margin-bottom:6px; display:block">Group Name</label>
+            <input type="text" id="group-name-input" class="search-inp" style="padding-left:12px" placeholder="e.g. Study Buddies">
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label style="font-size:14px; font-weight:600; margin-bottom:6px; display:block">Select Members</label>
+            <div id="group-friend-list" class="search-results" style="border:1px solid var(--border); border-radius:12px; padding:10px;">
+                <!-- Friend list checkboxes -->
+            </div>
+        </div>
+        <button class="create-group-btn" onclick="submitCreateGroup()">Create Group</button>
+    </div>
+</div>
+
 <script>
     const API_URL = 'http://localhost:5000';
     let currentUser = null;
-    let activeFriendId = null;
+    
+    // Chat state
+    let activeChatId = null;
+    let activeChatType = null; // 'friend' or 'group'
     let messageInterval = null;
+    let cachedFriends = [];
 
     // --- Init ---
     document.addEventListener('DOMContentLoaded', () => {
@@ -443,6 +505,7 @@
         
         // Initial Fetch
         fetchFriends();
+        fetchGroups();
         fetchRequests();
     });
 
@@ -451,12 +514,17 @@
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
         
+        document.getElementById('friends-view').style.display = 'none';
+        document.getElementById('groups-view').style.display = 'none';
+        document.getElementById('requests-view').style.display = 'none';
+
         if (tab === 'friends') {
             document.getElementById('friends-view').style.display = 'block';
-            document.getElementById('requests-view').style.display = 'none';
             fetchFriends();
+        } else if (tab === 'groups') {
+            document.getElementById('groups-view').style.display = 'block';
+            fetchGroups();
         } else {
-            document.getElementById('friends-view').style.display = 'none';
             document.getElementById('requests-view').style.display = 'block';
             fetchRequests();
         }
@@ -467,6 +535,7 @@
         try {
             const res = await fetch(`${API_URL}/friends/list/${currentUser.user_id}`);
             const friends = await res.json();
+            cachedFriends = friends; // Cache for group creation
             const container = document.getElementById('friends-view');
             container.innerHTML = '';
 
@@ -484,10 +553,9 @@
 
             friends.forEach(f => {
                 const div = document.createElement('div');
-                div.className = `contact-item ${activeFriendId === f.id ? 'active' : ''}`;
-                div.onclick = () => openChat(f);
+                div.className = `contact-item ${activeChatId === f.id ? 'active' : ''}`;
+                div.onclick = () => openChat(f, 'friend');
                 
-                // Get Initials
                 const initials = f.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
                 
                 div.innerHTML = `
@@ -495,6 +563,47 @@
                     <div class="contact-info">
                         <div class="contact-name">${f.name}</div>
                         <div class="contact-email">${f.email}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // --- API: Groups ---
+    async function fetchGroups() {
+        try {
+            const res = await fetch(`${API_URL}/groups/list/${currentUser.user_id}`);
+            const groups = await res.json();
+            const container = document.getElementById('groups-view');
+            container.innerHTML = '';
+
+            if (groups.length === 0) {
+                container.innerHTML = `
+                    <div style="padding:40px 20px; text-align:center; color:var(--text-muted); font-size:14px">
+                        <i data-lucide="users-round" style="width:30px; height:30px; margin-bottom:10px; opacity:0.5; margin:auto"></i>
+                        <p>No groups yet.</p>
+                        <button onclick="openCreateGroupModal()" style="color:var(--primary); background:none; border:none; font-weight:600; cursor:pointer; margin-top:5px">Create one</button>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            groups.forEach(g => {
+                const div = document.createElement('div');
+                div.className = `contact-item ${activeChatId === g.id ? 'active' : ''}`;
+                div.onclick = () => openChat(g, 'group');
+                
+                const initials = g.name.substring(0, 2).toUpperCase();
+                
+                div.innerHTML = `
+                    <div class="avatar" style="background:var(--primary-light); color:var(--primary-dark)">${initials}</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${g.name}</div>
+                        <div class="contact-email">${g.member_count} members</div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -563,14 +672,16 @@
     }
 
     // --- API: Chat ---
-    function openChat(friend) {
-        activeFriendId = friend.id;
+    function openChat(target, type) {
+        activeChatId = target.id;
+        activeChatType = type;
+
         document.getElementById('empty-state').style.display = 'none';
         document.getElementById('active-chat').style.display = 'flex';
-        document.getElementById('chat-name').textContent = friend.name;
+        document.getElementById('chat-name').textContent = target.name;
         
         // Set Avatar
-        const initials = friend.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
+        const initials = target.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0,2);
         document.getElementById('chat-avatar').textContent = initials;
         
         // Highlight in sidebar
@@ -586,23 +697,37 @@
     }
 
     function closeChat() {
-        activeFriendId = null;
+        activeChatId = null;
+        activeChatType = null;
         if (messageInterval) clearInterval(messageInterval);
         document.getElementById('chatArea').classList.remove('active'); 
         document.getElementById('empty-state').style.display = 'flex';
         document.getElementById('active-chat').style.display = 'none';
         
-        // Remove highlight
         document.querySelectorAll('.contact-item').forEach(i => i.classList.remove('active'));
     }
 
     async function fetchMessages() {
-        if (!activeFriendId) return;
+        if (!activeChatId) return;
         try {
-            const res = await fetch(`${API_URL}/p2p/messages`, {
+            let url = '';
+            let body = {};
+
+            if (activeChatType === 'friend') {
+                url = `${API_URL}/p2p/messages`;
+                body = { user_id: currentUser.user_id, friend_id: activeChatId };
+            } else {
+                // Group Chat Fetch - GET request logic is simpler
+                const res = await fetch(`${API_URL}/groups/messages/${activeChatId}`);
+                const msgs = await res.json();
+                renderMessages(msgs);
+                return;
+            }
+
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ user_id: currentUser.user_id, friend_id: activeFriendId })
+                body: JSON.stringify(body)
             });
             const msgs = await res.json();
             renderMessages(msgs);
@@ -616,21 +741,29 @@
         box.innerHTML = msgs.map(m => {
             const isMe = m.sender_id === currentUser.user_id;
             const time = new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            // For group chat, we might want to show sender name if it's not me
+            let senderLabel = '';
+            if (activeChatType === 'group' && !isMe) {
+                senderLabel = `<span class="msg-sender-name">${m.sender_name || 'Member'}</span>`;
+            }
+
             return `
                 <div class="message ${isMe ? 'sent' : 'received'}">
+                    ${senderLabel}
                     ${m.text}
                     <span class="msg-time">${time}</span>
                 </div>
             `;
         }).join('');
 
-        if (shouldScroll || msgs.length === 1) box.scrollTop = box.scrollHeight;
+        if (shouldScroll || msgs.length <= 1) box.scrollTop = box.scrollHeight;
     }
 
     async function sendMessage() {
         const inp = document.getElementById('msg-input');
         const text = inp.value.trim();
-        if (!text || !activeFriendId) return;
+        if (!text || !activeChatId) return;
 
         inp.value = '';
         
@@ -645,19 +778,34 @@
         `;
         box.scrollTop = box.scrollHeight;
 
-        await fetch(`${API_URL}/p2p/send`, {
+        let url = '';
+        let body = {};
+
+        if (activeChatType === 'friend') {
+            url = `${API_URL}/p2p/send`;
+            body = {
+                sender_id: currentUser.user_id,
+                receiver_id: activeChatId,
+                text: text
+            };
+        } else {
+            url = `${API_URL}/groups/send`;
+            body = {
+                group_id: activeChatId,
+                sender_id: currentUser.user_id,
+                text: text
+            };
+        }
+
+        await fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                sender_id: currentUser.user_id,
-                receiver_id: activeFriendId,
-                text: text
-            })
+            body: JSON.stringify(body)
         });
         fetchMessages(); 
     }
 
-    // --- Modal Logic ---
+    // --- Modal Logic: Add Friend ---
     function openAddFriendModal() {
         const modal = document.getElementById('addFriendModal');
         modal.classList.add('active');
@@ -681,7 +829,6 @@
                 return;
             }
 
-            // Show loading
             list.innerHTML = '<div style="text-align:center; padding:20px;"><i data-lucide="loader-2" class="animate-spin"></i></div>';
             lucide.createIcons();
 
@@ -721,7 +868,6 @@
 
     async function sendFriendRequest(receiverId) {
         const btn = event.target;
-        const originalText = btn.textContent;
         btn.textContent = '...';
         btn.disabled = true;
 
@@ -733,6 +879,53 @@
         
         btn.textContent = 'Sent';
         btn.style.background = '#10b981';
+    }
+
+    // --- Modal Logic: Create Group ---
+    function openCreateGroupModal() {
+        const modal = document.getElementById('createGroupModal');
+        modal.classList.add('active');
+        document.getElementById('group-name-input').focus();
+        
+        // Populate friend list
+        const list = document.getElementById('group-friend-list');
+        if (cachedFriends.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:13px">You need friends to create a group.</div>';
+        } else {
+            list.innerHTML = cachedFriends.map(f => `
+                <label class="friend-select-item">
+                    <input type="checkbox" value="${f.id}">
+                    <div style="font-size:14px; font-weight:600">${f.name}</div>
+                </label>
+            `).join('');
+        }
+    }
+
+    function closeCreateGroupModal() {
+        document.getElementById('createGroupModal').classList.remove('active');
+        document.getElementById('group-name-input').value = '';
+    }
+
+    async function submitCreateGroup() {
+        const name = document.getElementById('group-name-input').value.trim();
+        const checkboxes = document.querySelectorAll('#group-friend-list input:checked');
+        const memberIds = Array.from(checkboxes).map(cb => cb.value);
+
+        if (!name) return alert('Please enter a group name');
+        if (memberIds.length === 0) return alert('Please select at least one friend');
+
+        await fetch(`${API_URL}/groups/create`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: name,
+                creator_id: currentUser.user_id,
+                members: memberIds
+            })
+        });
+
+        closeCreateGroupModal();
+        switchTab('groups'); // Refresh groups list
     }
 </script>
 
