@@ -1,4 +1,4 @@
-import os
+import os 
 import uuid
 import datetime
 from datetime import timezone
@@ -12,19 +12,22 @@ import google.generativeai as genai
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # --------------------------------------------------
-# App Setup
+#                App Setup
 # --------------------------------------------------
 app = Flask(__name__)
 CORS(app)
 load_dotenv()
 
 # --------------------------------------------------
-# MongoDB Setup
+#               MongoDB Setup
 # --------------------------------------------------
 messages_collection = None
 users_collection = None
 p2p_messages_collection = None
 friend_requests_collection = None
+# New Collections for Group Chat
+groups_collection = None
+group_messages_collection = None
 
 try:
     mongo_uri = os.getenv("MONGO_URI")
@@ -32,9 +35,14 @@ try:
         client = MongoClient(mongo_uri)
         db = client["aura_ai"]
         messages_collection = db["messages"] # AI Chat
-        users_collection = db["users"]
+        users_collection = db["users"]#user profiles 
         p2p_messages_collection = db["p2p_messages"] # User-to-User Chat
         friend_requests_collection = db["friend_requests"] # Friend Requests
+        
+        # --- NEW GROUP COLLECTIONS ---
+        groups_collection = db["groups"] 
+        group_messages_collection = db["group_messages"]
+        
         print("✅ MongoDB connected")
     else:
         print("⚠️ MONGO_URI not found in environment variables")
@@ -42,12 +50,12 @@ except Exception as e:
     print("❌ MongoDB error:", e)
 
 # --------------------------------------------------
-# Gemini Setup
+#               Gemini Setup
 # --------------------------------------------------
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # --------------------------------------------------
-# SQLite (AI MEMORY ONLY)
+#           SQLite (AI MEMORY ONLY)
 # --------------------------------------------------
 def get_sqlite_connection():
     conn = sqlite3.connect("aura_memory.db", check_same_thread=False)
@@ -73,7 +81,7 @@ def init_memory_db():
 init_memory_db()
 
 # --------------------------------------------------
-# Memory Helpers
+#               Memory Helpers
 # --------------------------------------------------
 def get_user_memory(user_id, limit=5):
     conn = get_sqlite_connection()
@@ -102,7 +110,7 @@ def save_or_update_memory(user_id, key, value, importance=5):
     conn.close()
 
 # --------------------------------------------------
-# AI Persona
+#               AI Persona
 # --------------------------------------------------
 def get_ai_persona(user_memory):
     memory_block = ""
@@ -122,9 +130,9 @@ def get_chat_history(session_id, user_id):
         role = "user" if doc["sender"] == "user" else "model"
         history.append({"role": role, "parts": [doc["message"]]})
     return history
-
+    
 # --------------------------------------------------
-# AUTH ROUTES
+#               AUTH ROUTES
 # --------------------------------------------------
 @app.route("/signup", methods=["POST"])
 def signup():
@@ -169,7 +177,7 @@ def login():
     }), 200
 
 # --------------------------------------------------
-# PROFILE MANAGEMENT ROUTES (NEW)
+#           PROFILE MANAGEMENT ROUTES 
 # --------------------------------------------------
 @app.route("/users/<user_id>", methods=["GET"])
 def get_user_profile(user_id):
@@ -187,7 +195,6 @@ def update_user_profile():
     
     if not user_id: return jsonify({"error": "User ID required"}), 400
 
-    # Fields allowed to update
     update_data = {
         "firstName": data.get("firstName"),
         "lastName": data.get("lastName"),
@@ -195,21 +202,18 @@ def update_user_profile():
         "contactNumber": data.get("contactNumber"),
         "emergencyContact": data.get("emergencyContact")
     }
-    
-    # Filter out None values
     update_data = {k: v for k, v in update_data.items() if v is not None}
 
     result = users_collection.update_one({"user_id": user_id}, {"$set": update_data})
     
     if result.matched_count > 0:
-        # Fetch updated user to return for frontend sync
         updated_user = users_collection.find_one({"user_id": user_id}, {"_id": 0, "password": 0})
         return jsonify({"success": True, "message": "Profile updated", "user": updated_user})
     
     return jsonify({"error": "User not found"}), 404
 
 # --------------------------------------------------
-# FRIEND SYSTEM ROUTES
+#               FRIEND SYSTEM ROUTES
 # --------------------------------------------------
 @app.route("/users/search", methods=["POST"])
 def search_users():
@@ -349,7 +353,91 @@ def get_friends_list(user_id):
     return jsonify(results)
 
 # --------------------------------------------------
-# P2P CHAT ROUTES
+#              GROUP CHAT ROUTES (NEW)
+# --------------------------------------------------
+
+@app.route("/groups/create", methods=["POST"])
+def create_group():
+    if groups_collection is None: return jsonify({"error": "DB error"}), 500
+    data = request.json
+    group_name = data.get("name")
+    creator_id = data.get("creator_id")
+    members = data.get("members", []) # List of user IDs including creator
+
+    if not group_name or not creator_id:
+        return jsonify({"error": "Missing fields"}), 400
+
+    # Ensure creator is in members
+    if creator_id not in members:
+        members.append(creator_id)
+
+    group_data = {
+        "group_id": str(uuid.uuid4()),
+        "name": group_name,
+        "created_by": creator_id,
+        "members": members,
+        "created_at": datetime.datetime.now(timezone.utc)
+    }
+
+    groups_collection.insert_one(group_data)
+    return jsonify({"success": True, "message": "Group created", "group": {"id": group_data["group_id"], "name": group_data["name"]}})
+
+@app.route("/groups/list/<user_id>", methods=["GET"])
+def list_groups(user_id):
+    if groups_collection is None: return jsonify([])
+    
+    # Find groups where user_id is in members array
+    groups = list(groups_collection.find(
+        {"members": user_id},
+        {"_id": 0, "group_id": 1, "name": 1, "members": 1}
+    ))
+    
+    results = []
+    for g in groups:
+        results.append({
+            "id": g["group_id"],
+            "name": g["name"],
+            "member_count": len(g["members"])
+        })
+    
+    return jsonify(results)
+
+@app.route("/groups/messages/<group_id>", methods=["GET"])
+def get_group_messages(group_id):
+    if group_messages_collection is None: return jsonify([])
+    
+    messages = list(group_messages_collection.find(
+        {"group_id": group_id}, 
+        {"_id": 0}
+    ).sort("timestamp", 1))
+
+    return jsonify(messages)
+
+@app.route("/groups/send", methods=["POST"])
+def send_group_message():
+    if group_messages_collection is None: return jsonify({"error": "DB error"}), 500
+    data = request.json
+    sender_id = data.get("sender_id")
+    
+    # Fetch sender name for display purposes in group chat
+    sender = users_collection.find_one({"user_id": sender_id})
+    sender_name = f"{sender.get('firstName')} {sender.get('lastName')}" if sender else "Unknown"
+
+    msg_data = {
+        "message_id": str(uuid.uuid4()),
+        "group_id": data.get("group_id"),
+        "sender_id": sender_id,
+        "sender_name": sender_name,
+        "text": data.get("text"),
+        "timestamp": datetime.datetime.now(timezone.utc).isoformat()
+    }
+
+    group_messages_collection.insert_one(msg_data)
+    return jsonify({"success": True, "message": msg_data})
+
+
+# --------------------------------------------------
+#              P2P CHAT ROUTES
 # --------------------------------------------------
 @app.route("/p2p/messages", methods=["POST"])
 def get_p2p_messages():
@@ -385,7 +473,7 @@ def send_p2p_message():
     return jsonify({"success": True, "message": msg_data})
 
 # --------------------------------------------------
-# AI CHAT ROUTES (Existing)
+#             AI CHAT ROUTES 
 # --------------------------------------------------
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -430,7 +518,9 @@ def get_sessions(user_id):
     ]
     sessions = list(messages_collection.aggregate(pipeline))
     return jsonify([{"session_id": s["_id"], "preview": s["last_message"][:30] + "...", "timestamp": s["timestamp"]} for s in sessions])
-
+#--------------------------------------------------
+#               Session Management Routes
+# --------------------------------------------------
 @app.route("/sessions/<session_id>", methods=["DELETE"])
 def delete_session(session_id):
     if messages_collection is not None:
