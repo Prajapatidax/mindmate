@@ -3,6 +3,7 @@ import uuid
 import datetime
 from datetime import timezone
 import sqlite3
+import random # Added for simulation
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -119,6 +120,9 @@ def get_ai_persona(user_memory):
     return (
         "You are Aura AI, a compassionate and supportive mental health assistant created by the MindMate team. "
         "You understand Indian cultural values. Always respond calmly, gently, and empathetically.\n\n"
+        "Visual Context Instructions:\n"
+        "- If you receive a system note that the user looks 'Happy', reply enthusiastically: 'Yes you are looking too much happy today! What is the good news?'\n"
+        "- If you receive a system note that the user looks 'Sad', reply gently: 'Ohh dear do not getting sad, I am here, share with your feeling.'\n\n"
         "User background:\n" + memory_block
     )
 
@@ -473,6 +477,29 @@ def send_p2p_message():
     return jsonify({"success": True, "message": msg_data})
 
 # --------------------------------------------------
+#           EMOTION DETECTION (SIMULATED)
+# --------------------------------------------------
+
+@app.route("/detect_emotion", methods=["POST"])
+def detect_emotion():
+    
+    try:
+        data = request.json
+       
+        emotions = ['happy', 'sad', 'neutral', 'neutral', 'neutral']
+        detected = random.choice(emotions) 
+        confidence = random.uniform(60.0, 95.0)
+
+        return jsonify({
+            "status": "success",
+            "top_emotion": detected,
+            "confidence": confidence
+        })
+    except Exception as e:
+        print("Emotion Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --------------------------------------------------
 #             AI CHAT ROUTES 
 # --------------------------------------------------
 @app.route("/chat", methods=["POST"])
@@ -481,9 +508,11 @@ def chat():
     user_message = data.get("message")
     user_id = data.get("user_id", "user_1")
     session_id = data.get("session_id") or str(uuid.uuid4())
+    emotion = data.get("emotion") # NEW: Get emotion from frontend
 
     if not user_message: return jsonify({"error": "No message"}), 400
 
+    # Store User Message
     if messages_collection is not None:
         messages_collection.insert_one({
             "user_id": user_id, "session_id": session_id,
@@ -494,10 +523,22 @@ def chat():
     user_memory = get_user_memory(user_id)
     history = get_chat_history(session_id, user_id)
     
+    # NEW: Prepare Context Message for AI
+    # If the user looks happy/sad in video, we prepend this context to the message
+    context_message = user_message
+    if emotion and emotion != "neutral":
+        # The frontend sends a specific prompt if triggering proactive reaction,
+        # but for normal chat, we just add context.
+        if "[SYSTEM:" not in user_message:
+            context_message = f"[Visual Context: The user looks {emotion}] {user_message}"
+    
     model = genai.GenerativeModel("gemini-2.5-flash", system_instruction=get_ai_persona(user_memory))
     chat_session = model.start_chat(history=history)
-    response = chat_session.send_message(user_message)
     
+    # Send the context-enriched message to Gemini
+    response = chat_session.send_message(context_message)
+    
+    # Store AI Response
     if messages_collection is not None:
         messages_collection.insert_one({
             "user_id": user_id, "session_id": session_id,
