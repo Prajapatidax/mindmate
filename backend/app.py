@@ -593,12 +593,16 @@ def admin_users():
         if isinstance(last_active, datetime.datetime):
             last_active = last_active.isoformat()
 
+        # Added email, contactNumber, and emergencyContact for emergency dashboard integration
         results.append({
             "id": u["user_id"],
             "name": f"{u.get('firstName', '')} {u.get('lastName', '')}".strip() or "Unknown User",
+            "email": u.get("email", ""),
+            "contactNumber": u.get("contactNumber", ""),
+            "emergencyContact": u.get("emergencyContact", ""),
             "age": u.get("age", "N/A"),
             "sessions": sessions,
-            "screenTime": f"{random.uniform(1.0, 8.0):.1f}h", # Simulated Screen time
+            "screenTime": f"{random.uniform(1.0, 8.0):.1f}h", 
             "riskLevel": risk_level,
             "wellnessScore": score,
             "lastActive": last_active
@@ -637,7 +641,6 @@ def admin_report_data():
     total_users = users_collection.count_documents({})
     high_risk_users = users_collection.count_documents({"wellnessProfile.score": {"$lt": 50}})
     
-    # Calculate Average Wellness
     pipeline = [
         {"$match": {"wellnessProfile.score": {"$type": "number"}}},
         {"$group": {"_id": None, "avg_score": {"$avg": "$wellnessProfile.score"}}}
@@ -645,20 +648,15 @@ def admin_report_data():
     avg_result = list(users_collection.aggregate(pipeline))
     current_avg = round(avg_result[0]["avg_score"], 1) if avg_result and avg_result[0].get("avg_score") else 0
 
-    # Calculate Positive Sentiment (e.g. users above 70 score)
     positive_users = users_collection.count_documents({"wellnessProfile.score": {"$gte": 70}})
     positive_sentiment = round((positive_users / total_users * 100) if total_users > 0 else 0)
 
-    # Calculate Average Weekly Engagement 
     total_sessions = 0
     if messages_collection is not None:
-        # Number of unique conversation sessions across the DB
         total_sessions = len(messages_collection.distinct("session_id"))
     
-    # Simple average sessions per user
     avg_weekly_engagement = round((total_sessions / total_users) if total_users > 0 else 0, 1)
 
-    # Simulated historical trend that ends exactly on the current real average
     trend = [
         max(0, current_avg - random.randint(5, 15)),
         max(0, current_avg - random.randint(2, 10)),
